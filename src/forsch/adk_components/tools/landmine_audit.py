@@ -50,7 +50,10 @@ def scan_hardcoded_paths(root: str | None = None) -> list[dict[str, Any]]:
         for i, line in enumerate(text.splitlines(), start=1):
             if i in safe_lines:
                 continue
-            for r in rule_hits(line):
+            if "# landmine: allow" in line:        # explicit per-line suppression
+                continue
+            code = line.split("#", 1)[0]           # match only the code, not trailing/leading comments
+            for r in rule_hits(code):
                 findings.append({"file": str(path), "line": i, "snippet": line.strip()[:120],
                                  "rule": r["id"], "severity": r["severity"], "remedy": r["remedy"]})
     return findings
@@ -58,7 +61,7 @@ def scan_hardcoded_paths(root: str | None = None) -> list[dict[str, Any]]:
 
 def check_env_contract(root: str | None = None) -> list[dict[str, Any]]:
     """Every os.environ.get("X", default) / os.environ["X"] -> is X set, and does its
-    default itself trip a rule (e.g. a /opt/data default)?"""
+    default itself trip a rule (e.g. a dead fleet-mount default)?"""
     base = Path(root or os.environ["FORSCH_ADK_WORKSPACE"]).expanduser().resolve()
     seen: dict[str, dict[str, Any]] = {}
     for path in _iter_files(base):

@@ -6,7 +6,7 @@ import re
 
 RULES = [
     {"id": "dead-fleet-path", "severity": "high",
-     "pattern": r"/opt/data\b",
+     "pattern": r"/opt/data\b",  # landmine: allow
      "remedy": "the dead fleet mount; read from FORSCH_ADK_WORKSPACE or derive"},
     {"id": "hardcoded-tailnet", "severity": "medium",
      "pattern": r"[\w.-]+\.ts\.net",
