@@ -11,7 +11,8 @@ from typing import Any
 import httpx
 
 _IGNORED_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"}
-_DEFAULT_WORKSPACE = "/opt/data/workspace/adk"
+# Workspace root comes ONLY from FORSCH_ADK_WORKSPACE (set by compose / the
+# cockpit unit). No hardcoded default — a stale path is a silent landmine.
 _DEFAULT_SERVICE_ENDPOINTS = {
     "authsome": "http://127.0.0.1:7998/health",
     "litellm": "http://127.0.0.1:4000/health/readiness",
@@ -136,7 +137,12 @@ def check_service_health(endpoints: dict[str, str] | None = None, timeout: float
 
 
 def _workspace_root() -> Path:
-    return Path(os.environ.get("FORSCH_ADK_WORKSPACE", _DEFAULT_WORKSPACE)).expanduser().resolve()
+    root = os.environ.get("FORSCH_ADK_WORKSPACE")
+    if not root:
+        raise RuntimeError(
+            "FORSCH_ADK_WORKSPACE is not set; refusing to guess the workspace root"
+        )
+    return Path(root).expanduser().resolve()
 
 
 def _resolve_workspace_path(path: str, workspace_root: Path) -> Path | None:
