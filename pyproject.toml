@@ -30,3 +30,4 @@ target-version = "py310"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src"]  # make `forsch.adk_components` importable without an editable install (a stray `forsch` namespace on sys.path otherwise shadows it)

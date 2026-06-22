@@ -7,6 +7,7 @@ from .frappe_client import FrappeClient
 from .household import add_reminder, get_grocery_log, log_groceries
 from .stability_tools import check_service_health, get_git_state, get_workspace_inventory
 from .stability_tools import validate_agent_imports
+from .ops_tools import execute_bash_command, read_host_file, write_host_file
 
 __all__ = [
     "AuthsomeHTTPClient",
@@ -23,4 +24,7 @@ __all__ = [
     "log_groceries",
     "stability_tools",
     "validate_agent_imports",
+    "execute_bash_command",
+    "read_host_file",
+    "write_host_file",
 ]
