@@ -94,7 +94,7 @@ def get_grocery_log(
             records = [r for r in records if needle in str(r.get("name", "")).lower()]
         records.sort(key=lambda r: (r.get("date") or "", r.get("logged_at") or ""))
         if limit is not None and limit >= 0:
-            records = records[-limit:]
+            records = records[-limit:] if limit else []  # limit=0 → none (records[-0:] would be ALL)
         return {"ok": True, "count": len(records), "records": records}
     except Exception as exc:  # noqa: BLE001 - tools return structured failures.
         return {"ok": False, "error": str(exc), "count": 0, "records": []}
