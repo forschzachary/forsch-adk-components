@@ -53,7 +53,18 @@ def write_host_file(path: str, content: str) -> dict:
         target = Path(os.path.expanduser(path)).resolve()
         ws = _workspace_root()
         confined = os.environ.get("FORSCH_ADK_ALLOW_HOST_WRITES") != "1"
-        if confined and ws is not None and not target.is_relative_to(ws):
+        if confined and ws is None:
+            # Fail CLOSED: an unset workspace must NOT silently disable the seatbelt
+            # (that let writes land anywhere). Matches stability_tools' refuse-to-guess.
+            return {
+                "path": path,
+                "success": False,
+                "error": (
+                    "refused: FORSCH_ADK_WORKSPACE is not set, so the write cannot be "
+                    "confined; set it, or set FORSCH_ADK_ALLOW_HOST_WRITES=1 to override"
+                ),
+            }
+        if confined and not target.is_relative_to(ws):
             return {
                 "path": path,
                 "success": False,
