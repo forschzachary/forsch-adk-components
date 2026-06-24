@@ -14,8 +14,8 @@ _IGNORED_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"}
 # Workspace root comes ONLY from FORSCH_ADK_WORKSPACE (set by compose / the
 # cockpit unit). No hardcoded default — a stale path is a silent landmine.
 _DEFAULT_SERVICE_ENDPOINTS = {
-    "authsome": "http://127.0.0.1:7998/health",
-    "litellm": "http://127.0.0.1:4000/health/readiness",
+    "authsome": os.environ.get("AUTHSOME_BASE_URL", "http://127.0.0.1:7998") + "/health",
+    "litellm": os.environ.get("LITELLM_BASE_URL", "http://127.0.0.1:4000") + "/health/readiness",
 }
 _DEFAULT_AGENTS = {
     "stability": {"module": "forsch.agent_stability.agent", "attr": "root_agent"},

@@ -53,7 +53,7 @@ class AuthsomeHTTPClient:
     def __init__(
         self,
         *,
-        base_url: str = "http://127.0.0.1:7998",
+        base_url: str = os.environ.get("AUTHSOME_BASE_URL", "http://127.0.0.1:7998"),
         authsome_bin: str | None = None,
         timeout: int = 30,
     ) -> None:
