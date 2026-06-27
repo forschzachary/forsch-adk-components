@@ -2,10 +2,9 @@
 
 Walks all inventory.yaml files (patterns, agents, uis, routers, datasources) and
 verifies:
-1. Every entry in every inventory has a matching file on disk.
-2. Every file referenced by inventory has matching frontmatter.
-3. Every agent's `patterns:` field references patterns that exist in inventory.
-4. Every agent's `tools:` list references tools whose family is registered.
+1. Every entry in every inventory has a matching file on disk (resolved from
+   workspace root OR from the inventory's parent dir).
+2. Every agent's `patterns:` field references patterns that exist in inventory.
 
 Exits non-zero with a structured report if drift detected.
 """
@@ -23,36 +22,43 @@ except ImportError:
     sys.exit(0)
 
 
-FRONTMATTER_RE = re.compile(r'^---\s*\n(.*?)\n---', re.DOTALL | re.MULTILINE)
 BLOCK_KINDS = ["patterns", "agents", "uis", "routers", "datasources"]
 
 
-def _load_yaml(p: Path) -> dict | None:
+def _load_yaml(p: Path):
     try:
         return yaml.safe_load(p.read_text())
     except Exception as exc:
         return {"_error": str(exc)}
 
 
-def _walk_blocks(workspace: Path) -> dict[str, Path]:
-    """Find every inventory.yaml under building_blocks/."""
-    found: dict[str, Path] = {}
-    bb_root = workspace / "components" / "src" / "forsch" / "adk_components"
-    if not bb_root.exists():
-        return found
-    for sub in BLOCK_KINDS:
-        inv = bb_root / sub / "inventory.yaml"
-        if inv.exists():
-            found[sub] = inv
-    return found
+def _resolve_file(workspace: Path, inv_path: Path, file_field: str) -> Path:
+    """Resolve a file path. Try as absolute, then relative to workspace root."""
+    p = Path(file_field)
+    if p.is_absolute():
+        return p
+    candidate = (inv_path.parent / file_field).resolve()
+    if candidate.exists():
+        return candidate
+    return (workspace / file_field).resolve()
 
 
 def lint(workspace: Path | None = None) -> int:
     ws = workspace or Path(os.environ.get("FORSCH_ADK_WORKSPACE", "/root/.hermes/workspace/adk"))
-    inventories = _walk_blocks(ws)
-    if not inventories:
-        print("lint: no inventories found under", ws / "components/src/forsch/adk_components")
+    inventories: dict[str, Path] = {}
+    bb_root = ws / "components" / "src" / "forsch" / "adk_components"
+    if not bb_root.exists():
+        print("lint: no inventories found under", bb_root)
         return 0
+    for sub in BLOCK_KINDS:
+        inv = bb_root / sub / "inventory.yaml"
+        if inv.exists():
+            inventories[sub] = inv
+
+    if not inventories:
+        print("lint: no inventories found")
+        return 0
+
     errors: list[str] = []
     for kind, inv_path in inventories.items():
         data = _load_yaml(inv_path) or {}
@@ -60,11 +66,15 @@ def lint(workspace: Path | None = None) -> int:
         if not isinstance(items, dict):
             continue
         for name, meta in items.items():
-            file_field = meta.get("file") if isinstance(meta, dict) else None
-            if file_field:
-                expected = inv_path.parent / file_field
-                if not expected.exists():
-                    errors.append(f"[{kind}] {name}: file '{file_field}' missing at {expected}")
+            if not isinstance(meta, dict):
+                continue
+            file_field = meta.get("file")
+            if not file_field:
+                continue
+            expected = _resolve_file(ws, inv_path, file_field)
+            if not expected.exists():
+                errors.append(f"[{kind}] {name}: file '{file_field}' not found (tried {expected})")
+
     registry_path = ws / "live-agent-graph" / "registry" / "agents" / "agents.yaml"
     if registry_path.exists():
         reg = _load_yaml(registry_path) or {}
@@ -79,6 +89,7 @@ def lint(workspace: Path | None = None) -> int:
                 pdata = _load_yaml(pinv) or {}
                 if pattern_id not in (pdata.get("patterns") or {}):
                     errors.append(f"[registry] agent '{agent_id}' declares unknown pattern '{pattern_id}'")
+
     if errors:
         print("PATTERNS LINT: drift detected")
         for e in errors:
