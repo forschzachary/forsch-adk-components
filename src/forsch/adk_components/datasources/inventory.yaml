@@ -1,0 +1,5 @@
+# datasources inventory — keyword + intention index for all datasources
+# Frontmatter format is the same as patterns/ — see patterns/inventory.yaml.
+# Entries will be populated as you build new datasources blocks.
+
+datasources:

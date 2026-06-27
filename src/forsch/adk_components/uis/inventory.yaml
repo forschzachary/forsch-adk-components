@@ -1,0 +1,5 @@
+# uis inventory — keyword + intention index for all uis
+# Frontmatter format is the same as patterns/ — see patterns/inventory.yaml.
+# Entries will be populated as you build new uis blocks.
+
+uis:

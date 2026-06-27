@@ -8,8 +8,20 @@ Each pattern's frontmatter (in its docstring) declares:
 - used_by: which tools/agents currently use it
 - example: one-line usage
 
-See inventory.yaml for the master index.
+See inventory.yaml for the master index. _lint.py catches drift.
 """
+from .agent_factory import make_agent, make_model
 from .jsonl_store import JSONLStore
+from .oauth_client import OAuthAPIClient, OAuthError
+from .receipt_tool import receipt
+from .whitelist import WhitelistStore
 
-__all__ = ["JSONLStore"]
+__all__ = [
+    "JSONLStore",
+    "OAuthAPIClient",
+    "OAuthError",
+    "WhitelistStore",
+    "make_agent",
+    "make_model",
+    "receipt",
+]
