@@ -1,4 +1,6 @@
 import json
+import sys
+import time
 import urllib.request
 
 import pytest
@@ -6,6 +8,7 @@ import yaml
 
 from forsch.adk_components.patterns.cluster_spawn import make_agent_files
 from forsch.adk_components.patterns.jsonl_store import JSONLStore
+from forsch.adk_components.patterns.mimo_stream_runner import run as mimo_stream_run
 from forsch.adk_components.patterns.oauth_client import OAuthAPIClient, OAuthError
 
 
@@ -126,3 +129,28 @@ def test_make_agent_files_writes_web_yaml_and_canonical_manifest(tmp_path):
         model="gpt-5-mini",
     )
     assert second["files_written"] == {}
+
+
+def test_mimo_stream_runner_kills_after_json_error_event():
+    script = (
+        "import json, sys, time; "
+        "print(json.dumps({'type':'error','sessionID':'s1','error':{'data':{'message':'Model not found: test-model'}}}), flush=True); "
+        "time.sleep(30)"
+    )
+
+    started = time.monotonic()
+    result = mimo_stream_run([sys.executable, "-c", script], timeout=10)
+
+    assert time.monotonic() - started < 2
+    assert result["ok"] is False
+    assert "Model not found: test-model" in result["error"]
+    assert result["session_id"] == "s1"
+
+
+def test_mimo_stream_runner_reports_non_json_failure():
+    script = "import sys; print('Model not found: plain-text-model'); sys.exit(1)"
+
+    result = mimo_stream_run([sys.executable, "-c", script], timeout=5)
+
+    assert result["ok"] is False
+    assert "Model not found: plain-text-model" in result["error"]

@@ -86,6 +86,16 @@ patterns:
     used_by: []
     example: "make_agent_files('calendar_bot', 'Tracks events', 'You are a calendar assistant.', [gcal_fetch_events])"
 
+  mimo_stream_runner:
+    file: mimo_stream_runner.py
+    class: run
+    keywords: [mimo, cli, subprocess, stream, json-events, timeout, provider-error, model-selection, coding-agent]
+    intention: "Saves you from rebuilding brittle MiMo CLI subprocess handling. It streams JSON events, captures provider errors, kills stuck children, and returns structured chat results."
+    function: "run(cmd, cwd, timeout) -> structured MiMo CLI result with response/error/session_id."
+    depends_on: []
+    used_by: [live-agent-graph-chat]
+    example: "mimo_stream_run(['mimo', 'run', '--format', 'json', 'hello'], cwd=workspace, timeout=120)"
+
 external:
   apple_reminders_sync:
     location: /root/.hermes/workspace/adk/_ios-shelby-reminders/ShelbyRemindersCore/
