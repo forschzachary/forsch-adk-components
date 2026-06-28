@@ -39,7 +39,7 @@ _DEFAULT_GIT_PATHS = [
 
 def get_workspace_inventory(root: str | None = None, max_depth: int = 3) -> dict[str, Any]:
     """Return a compact read-only inventory of the configured ADK workspace."""
-    workspace_root = _workspace_root()
+    workspace_root = _workspace_root(root)
     root_path = _resolve_workspace_path(root or str(workspace_root), workspace_root)
     if root_path is None:
         return {"root": root, "exists": False, "directories": [], "files": [], "error": "path outside workspace"}
@@ -68,14 +68,20 @@ def get_workspace_inventory(root: str | None = None, max_depth: int = 3) -> dict
 
 def get_git_state(paths: list[str] | None = None) -> list[dict[str, Any]]:
     """Return branch and porcelain status for known workspace repository paths."""
-    workspace_root = _workspace_root()
-    requested_paths = paths if paths is not None else [str(workspace_root / rel_path) for rel_path in _DEFAULT_GIT_PATHS]
+    workspace_root = _workspace_root(required=paths is None)
+    if paths is None:
+        requested_paths = [str(workspace_root / rel_path) for rel_path in _DEFAULT_GIT_PATHS]
+    else:
+        requested_paths = paths
     states: list[dict[str, Any]] = []
     for requested_path in requested_paths:
-        path = _resolve_workspace_path(requested_path, workspace_root)
-        if path is None:
-            states.append({"path": requested_path, "is_repo": False, "branch": None, "status": [], "error": "path outside workspace"})
-            continue
+        if workspace_root is not None:
+            path = _resolve_workspace_path(requested_path, workspace_root)
+            if path is None:
+                states.append({"path": requested_path, "is_repo": False, "branch": None, "status": [], "error": "path outside workspace"})
+                continue
+        else:
+            path = Path(requested_path).expanduser().resolve()
         states.append(_git_state_for_path(path))
     return states
 
@@ -136,13 +142,17 @@ def check_service_health(endpoints: dict[str, str] | None = None, timeout: float
     return results
 
 
-def _workspace_root() -> Path:
+def _workspace_root(fallback: str | None = None, *, required: bool = True) -> Path | None:
     root = os.environ.get("FORSCH_ADK_WORKSPACE")
-    if not root:
+    if root:
+        return Path(root).expanduser().resolve()
+    if fallback:
+        return Path(fallback).expanduser().resolve()
+    if required:
         raise RuntimeError(
             "FORSCH_ADK_WORKSPACE is not set; refusing to guess the workspace root"
         )
-    return Path(root).expanduser().resolve()
+    return None
 
 
 def _resolve_workspace_path(path: str, workspace_root: Path) -> Path | None:
