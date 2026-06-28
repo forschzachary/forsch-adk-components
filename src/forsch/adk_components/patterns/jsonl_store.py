@@ -74,16 +74,46 @@ class JSONLStore:
                     continue
         return records
 
+    def cleanup_tmp_files(self) -> int:
+        """Remove temp files left behind by interrupted atomic writes for this store."""
+        removed = 0
+        pattern = f".{self.path.name}.*.tmp"
+        for tmp_path in self.path.parent.glob(pattern):
+            try:
+                tmp_path.unlink()
+                removed += 1
+            except FileNotFoundError:
+                continue
+        return removed
+
     def write_atomic(self, records: Iterable[dict[str, Any]]) -> int:
         materialised = list(records)
         payload = "\n".join(json.dumps(r, ensure_ascii=False) for r in materialised)
         if payload:
             payload += "\n"
         tmp_dir = self.path.parent
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=tmp_dir, delete=False, suffix=".tmp") as tmp:
-            tmp.write(payload)
-            tmp_path = Path(tmp.name)
-        tmp_path.replace(self.path)
+        self.cleanup_tmp_files()
+        tmp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=tmp_dir,
+                delete=False,
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+            ) as tmp:
+                tmp.write(payload)
+                tmp.flush()
+                os.fsync(tmp.fileno())
+                tmp_path = Path(tmp.name)
+            tmp_path.replace(self.path)
+        finally:
+            if tmp_path and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except FileNotFoundError:
+                    pass
         return len(materialised)
 
     def __repr__(self) -> str:

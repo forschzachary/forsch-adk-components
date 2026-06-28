@@ -9,6 +9,9 @@ dependencies = [
     "httpx>=0.27",
 ]
 
+[project.scripts]
+patterns = "forsch.adk_components.patterns.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",

@@ -80,6 +80,10 @@ class OAuthAPIClient:
         token["saved_at"] = time.time()
         self.token_store.write_atomic([token])
 
+    def _set_token_state(self, token: dict[str, Any]) -> None:
+        self._access_token = token["access_token"]
+        self._token_expires_at = time.time() + token.get("expires_in", 3600)
+
     def _is_token_valid(self) -> bool:
         if not self._access_token:
             return False
@@ -90,15 +94,22 @@ class OAuthAPIClient:
         if self._is_token_valid():
             return self._access_token  # type: ignore[return-value]
         stored = self._load_token()
+        refresh_error: OAuthError | None = None
         if stored and stored.get("refresh_token"):
             try:
                 return self._refresh(stored["refresh_token"])
-            except OAuthError:
-                pass  # fall through to full auth
-        raise OAuthError(
+            except OAuthError as exc:
+                refresh_error = exc
+        message = (
             f"{self.provider_name}: no valid token and no refresh_token. "
             f"Run the authorization flow first (call get_authorization_url + exchange_code)."
         )
+        if refresh_error:
+            message = (
+                f"{self.provider_name}: stored refresh_token could not be refreshed. "
+                f"{refresh_error} Run the authorization flow again."
+            )
+        raise OAuthError(message)
 
     def _refresh(self, refresh_token: str) -> str:
         data = urllib.parse.urlencode({
@@ -114,9 +125,13 @@ class OAuthAPIClient:
         except Exception as exc:
             raise OAuthError(f"{self.provider_name}: refresh failed: {exc}") from exc
         token["refresh_token"] = token.get("refresh_token", refresh_token)
-        self._save_token(token)
-        self._access_token = token["access_token"]
-        self._token_expires_at = time.time() + token.get("expires_in", 3600)
+        self._set_token_state(token)
+        try:
+            self._save_token(token)
+        except Exception as exc:
+            raise OAuthError(
+                f"{self.provider_name}: refresh succeeded but token persistence failed: {exc}"
+            ) from exc
         return self._access_token
 
     def exchange_code(self, code: str, redirect_uri: str = "http://localhost") -> dict[str, Any]:
@@ -134,9 +149,13 @@ class OAuthAPIClient:
                 token = json.loads(resp.read())
         except Exception as exc:
             raise OAuthError(f"{self.provider_name}: code exchange failed: {exc}") from exc
-        self._save_token(token)
-        self._access_token = token["access_token"]
-        self._token_expires_at = time.time() + token.get("expires_in", 3600)
+        self._set_token_state(token)
+        try:
+            self._save_token(token)
+        except Exception as exc:
+            raise OAuthError(
+                f"{self.provider_name}: code exchange succeeded but token persistence failed: {exc}"
+            ) from exc
         return token
 
     def get_authorization_url(self, redirect_uri: str = "http://localhost", state: str = "") -> str:

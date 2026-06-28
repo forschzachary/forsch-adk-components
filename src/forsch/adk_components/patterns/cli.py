@@ -125,7 +125,11 @@ def cmd_new_agent(args) -> int:
         print(f"cluster_spawn not importable: {exc}", file=sys.stderr)
         return 1
     tools = args.tool or []
-    result = make_agent_files(args.id, args.description, args.instruction, tools)
+    try:
+        result = make_agent_files(args.id, args.description, args.instruction, tools)
+    except ValueError as exc:
+        print(f"new-agent: {exc}", file=sys.stderr)
+        return 2
     print(f"agent {args.id} scaffolded; files written:")
     for path, size in result["files_written"].items():
         print(f"  {path} ({size} bytes)")
